@@ -1,0 +1,66 @@
+---
+- name: Ensure the service config directory is present
+  ansible.builtin.file:
+    path: "{{ mosquitto__host_config_dir }}/{{ item }}"
+    state: directory
+    owner: 1883
+    group: 1883
+    mode: u=rwX,go=rX
+  loop:
+   - ""
+   - config
+   - data
+   - log
+
+- name: Create passwordfile secret
+  containers.podman.podman_secret:
+    state: present
+    skip_existing: true
+    name: passwordfile
+    data: "{{ lookup('ansible.builtin.template', 'passwordfile.j2') }}"
+
+- name: Create Mosquitto config files
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ mosquitto__host_config_dir }}/config/{{ item }}"
+    owner: 1883
+    group: 1883
+    mode: u=rw,og=r
+  loop:
+    - mosquitto.conf
+  notify:
+    - Restart mosquitto
+
+- name: Create mosquitto container
+  containers.podman.podman_container:
+    name: mosquitto
+    image: docker.io/eclipse-mosquitto
+    state: present
+    ports:
+      - 1883:1883
+    network: "podman-dns:ip=10.89.0.129"
+    label:
+      io.containers.autoupdate: registry
+      PODMAN_SYSTEMD_UNIT: "{{ mosquitto__unit_name }}"
+    read_only: true
+    security_opt:
+      - no-new-privileges
+    secrets:
+      - passwordfile,uid=1883,gid=1883,mode=0700
+    volumes:
+      - "{{ mosquitto__host_config_dir }}:/mosquitto"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /dev/log:/dev/log:rw
+    restart_policy: ""
+    generate_systemd:
+      new: true
+      path: /etc/systemd/system/
+      restart_policy: "on-failure"
+  notify: Restart mosquitto
+
+- name: Enable mosquitto service
+  ansible.builtin.systemd:
+    name: "{{ mosquitto__unit_name }}"
+    enabled: true
+    daemon_reload: true

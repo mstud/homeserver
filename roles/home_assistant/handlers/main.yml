@@ -1,0 +1,6 @@
+---
+- name: Restart homeassistant
+  ansible.builtin.systemd:
+    name: "{{ home_assistant__unit_name }}"
+    state: restarted
+    daemon_reload: true

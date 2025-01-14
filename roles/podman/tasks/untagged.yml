@@ -1,0 +1,73 @@
+---
+- name: Install podman and dependencies
+  ansible.builtin.apt:
+    name: >
+      [
+      "podman",
+      "containernetworking-plugins",
+      "golang-github-containernetworking-plugin-dnsname",
+      {% if podman__provide_init %}
+      "catatonit",
+      {% endif %}
+      "netavark",
+      "aardvark-dns",
+      ]
+    state: latest
+    update_cache: true
+    policy_rc_d: 101 # prevent service-restart
+  register: podman_installed
+
+
+- name: Setup podman conf files
+  ansible.builtin.template:
+    src: "templates/{{ item }}.j2"
+    dest: "/etc/containers/{{ item }}"
+    owner: root
+    group: root
+    mode: "u=rw,g=r,o=r"
+  loop:
+    - policy.json
+    - containers.conf
+  notify: Restart podman API service
+
+- name: Enable podman service
+  ansible.builtin.systemd:
+    name: podman
+    enabled: true
+
+- name: Setup podman autoupdates
+  when: podman__auto_update
+  block:
+    - name: Change auto update time to monday 2:00
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/podman-auto-update.timer
+        regexp: "^OnCalendar.*$"
+        line: "OnCalendar={{ podman__auto_update_time }}"
+
+    - name: Activate auto update Timer Unit
+      ansible.builtin.systemd:
+        name: podman-auto-update.timer
+        enabled: true
+        daemon_reload: true
+
+- name: Create podman network with dns_enabled(podman-dns)
+  when: podman__dns_enabled_network
+  block:
+    - name: Create podman network
+      containers.podman.podman_network:
+        name: "{{ podman__dns_enabled_network }}"
+        disable_dns: false
+        ip_range: "{{ podman__dns_enabled_network_ip_range | d(omit) }}"
+        gateway: "{{ podman__dns_enabled_network_gateway | d(omit) }}"
+        subnet: "{{ podman__dns_enabled_network_subnet | d(omit) }}"
+        # interface_name: foobar
+        # see https://github.com/containers/ansible-podman-collections/pull/677/files
+        # see https://github.com/containers/podman/commit/ed99a979ce5f6250594eeb60a7b343b2c09896cf
+
+    - name: Change interface name
+      ansible.builtin.lineinfile:
+        path: "/etc/containers/networks/{{ podman__dns_enabled_network }}.json"
+        regexp: '\s+"network_interface".*'
+        line: '     "network_interface": "{{ podman__dns_enabled_network }}",'
+      when: ansible_distribution == 'Debian' and ansible_distribution_major_version|int >= 12
+

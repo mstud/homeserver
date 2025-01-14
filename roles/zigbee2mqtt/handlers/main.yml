@@ -1,0 +1,6 @@
+---
+- name: Restart zigbee2mqtt
+  ansible.builtin.systemd:
+    name: "{{ zigbee2mqtt__unit_name }}"
+    state: restarted
+    daemon_reload: true

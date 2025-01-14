@@ -1,0 +1,5 @@
+---
+- name: Restart podman API service
+  ansible.builtin.systemd:
+    name: podman
+    state: restarted

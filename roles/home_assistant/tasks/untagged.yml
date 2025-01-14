@@ -1,0 +1,55 @@
+---
+- name: Ensure the service config directory is present
+  ansible.builtin.file:
+    path: "{{ home_assistant__host_config_dir }}"
+    state: directory
+    mode: u=rwX,go=rX
+
+- name: Create homeassistant config files
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ home_assistant__host_config_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: u=rw,og=r
+  loop:
+    - configuration.yaml
+  notify:
+    - Restart homeassistant
+
+- name: Create homeassistant container
+  containers.podman.podman_container:
+    name: homeassistant
+    image: docker.io/homeassistant/home-assistant
+    state: present
+    #ports:
+    #  - 8123:8123
+    #  - 80:80
+    # FIXME: find out which ports are necessary for upnp/device discovery, so we
+    # don't need to use `network: host` anymore
+    #network: "podman-dns:ip=10.89.0.128"
+    network: host
+    label:
+      io.containers.autoupdate: registry
+      PODMAN_SYSTEMD_UNIT: "{{ home_assistant__unit_name }}"
+    read_only: true
+    security_opt:
+      - no-new-privileges
+    volumes:
+      - "{{ home_assistant__host_config_dir }}:/config"
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /dev/log:/dev/log:rw
+    restart_policy: ""
+    generate_systemd:
+      new: true
+      path: /etc/systemd/system/
+      restart_policy: "on-failure"
+      after: "{{ mosquitto__unit_name }}"
+  notify: Restart homeassistant
+
+- name: Enable homeassistant service
+  ansible.builtin.systemd:
+    name: "{{ home_assistant__unit_name }}"
+    enabled: true
+    daemon_reload: true

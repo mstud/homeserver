@@ -1,0 +1,9 @@
+---
+podman__dns_enabled_network: podman-dns
+podman__dns_enabled_network_ip_range: 10.89.0.0/25
+podman__dns_enabled_network_gateway: 10.89.0.1
+podman__dns_enabled_network_subnet: 10.89.0.0/24
+podman__nftables_config:
+podman__auto_update_time: 'Mon *-*-* 02:00'
+podman__auto_update: true
+podman__provide_init: false

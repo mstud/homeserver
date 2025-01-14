@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[network]
+
+# Network backend determines what network driver will be used to set up and tear down container networks.
+# Valid values are "cni" and "netavark".
+# The default value is empty which means that it will automatically choose CNI or netavark. If there are
+# already containers/images or CNI networks preset it will choose CNI.
+#
+# Before changing this value all containers must be stopped otherwise it is likely that
+# iptables rules and network interfaces might leak on the host. A reboot will fix this.
+#
+network_backend = "netavark"

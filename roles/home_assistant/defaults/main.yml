@@ -1,0 +1,3 @@
+---
+home_assistant__host_config_dir: /opt/homeassistant
+home_assistant__unit_name: container-homeassistant.service

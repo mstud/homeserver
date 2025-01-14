@@ -1,0 +1,59 @@
+---
+- name: Ensure the service config directory is present
+  ansible.builtin.file:
+    path: "{{ zigbee2mqtt__host_config_dir }}/{{ item }}"
+    state: directory
+    mode: u=rwX,go=rX
+  loop:
+   - ""
+   - log
+
+- name: Create zigbee2mqtt config files
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ zigbee2mqtt__host_config_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: u=rw,og=r
+  loop:
+    - configuration.yaml
+    - secret.yaml
+  notify:
+    - Restart zigbee2mqtt
+
+- name: Create zigbee2mqtt container
+  containers.podman.podman_container:
+    name: zigbee2mqtt
+    image: docker.io/koenkk/zigbee2mqtt
+    state: present
+    ports:
+      - 8080:8080
+    network: "podman-dns:ip=10.89.0.130"
+    label:
+      io.containers.autoupdate: registry
+      PODMAN_SYSTEMD_UNIT: "{{ zigbee2mqtt__unit_name }}"
+    read_only: true
+    security_opt:
+      - no-new-privileges
+    volumes:
+      - "{{ zigbee2mqtt__host_config_dir }}:/app/data"
+      - /run/udev:/run/udev:ro 
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /dev/log:/dev/log:rw
+    device:
+      - "{{ zigbee2mqtt__host_device }}:/dev/ttyACM0"
+    restart_policy: ""
+    generate_systemd:
+      new: true
+      path: /etc/systemd/system/
+      restart_policy: "always" #"on-failure"
+      restart_sec: 30
+      after: "{{ mosquitto__unit_name }}"
+  notify: Restart zigbee2mqtt
+
+- name: Enable zigbee2mqtt service
+  ansible.builtin.systemd:
+    name: "{{ zigbee2mqtt__unit_name }}"
+    enabled: true
+    daemon_reload: true

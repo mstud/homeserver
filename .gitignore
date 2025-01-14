@@ -1,0 +1,10 @@
+*.retry
+.passwords
+
+#Python compiled files / cache
+__pycache__/
+*.py[cod]
+
+#file backups and other editor files
+*~
+.*.swp

@@ -1,0 +1,6 @@
+---
+mosquitto__host_config_dir: /opt/mosquitto
+mosquitto__unit_name: container-mosquitto.service
+mosquitto__users:
+  - username: "{{ mqtt_user }}"
+    password: "{{ mqtt_password }}"
